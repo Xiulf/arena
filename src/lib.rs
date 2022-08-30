@@ -56,12 +56,16 @@ impl<T> Arena<T> {
         self.data.is_empty()
     }
 
+    #[inline]
+    pub fn next_idx(&self) -> Idx<T> {
+        Idx::from_raw(RawIdx(self.data.len() as u32))
+    }
+
     pub fn alloc(&mut self, value: T) -> Idx<T> {
-        let id = RawIdx(self.data.len() as u32);
+        let id = self.next_idx();
 
         self.data.push(value);
-
-        Idx::from_raw(id)
+        id
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (Idx<T>, &T)> + ExactSizeIterator + DoubleEndedIterator {
