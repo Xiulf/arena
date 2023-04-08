@@ -1,9 +1,17 @@
 use super::Idx;
-use std::{iter::FromIterator, marker::PhantomData};
+use std::{
+    iter::{Enumerate, FromIterator},
+    marker::PhantomData,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ArenaMap<IDX, V> {
     v: Vec<Option<V>>,
+    _marker: PhantomData<IDX>,
+}
+
+pub struct IntoIter<IDX, V> {
+    iter: Enumerate<std::vec::IntoIter<Option<V>>>,
     _marker: PhantomData<IDX>,
 }
 
@@ -47,6 +55,13 @@ impl<T, V> ArenaMap<Idx<T>, V> {
             .filter_map(|(idx, o)| Some((Self::from_idx(idx), o.as_ref()?)))
     }
 
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (Idx<T>, &mut V)> {
+        self.v
+            .iter_mut()
+            .enumerate()
+            .filter_map(|(idx, o)| Some((Self::from_idx(idx), o.as_mut()?)))
+    }
+
     fn to_idx(idx: Idx<T>) -> usize {
         u32::from(idx.into_raw()) as usize
     }
@@ -86,5 +101,30 @@ impl<T, V> FromIterator<(Idx<T>, V)> for ArenaMap<Idx<T>, V> {
             v: vec,
             _marker: PhantomData,
         }
+    }
+}
+
+impl<T, V> IntoIterator for ArenaMap<Idx<T>, V> {
+    type Item = (Idx<T>, V);
+    type IntoIter = IntoIter<Idx<T>, V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter {
+            iter: self.v.into_iter().enumerate(),
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<T, V> Iterator for IntoIter<Idx<T>, V> {
+    type Item = (Idx<T>, V);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let (idx, item) = self.iter.next()?;
+        let Some(item) = item else {
+            return self.next();
+        };
+
+        Some((Idx::from_raw((idx as u32).into()), item))
     }
 }
